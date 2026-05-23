@@ -1,0 +1,12 @@
+some_operating_mode_1.py: ECB (Electronic Codebook — электронная кодовая книга);
+some_operating_mode_2.py: CBC (Cipher Block Chaining — сцепление блоков шифротекста);
+some_operating_mode_3.py: CFB (Cipher Feedback — обратная связь по шифротексту);
+some_operating_mode_4.py: OFB (Output Feedback — обратная связь по выходу);
+some_operating_mode_5.py: CTR (Counter — режим счётчика).
+
+Проверка логики:
+1 — каждый блок шифруется независимо, значит ECB (Electronic Codebook — электронная кодовая книга).
+2 — plaintext XOR previous ciphertext/IV, значит CBC (Cipher Block Chaining — сцепление блоков шифротекста).
+3 — шифруется previous block и XOR с plaintext, значит CFB (Cipher Feedback — обратная связь по шифротексту).
+4 — обновляется feedback независимо от ciphertext, значит OFB (Output Feedback — обратная связь по выходу).
+5 — используется counter и increment, значит CTR (Counter — режим счётчика).

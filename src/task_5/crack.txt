@@ -1,0 +1,129 @@
+Пошаговое объяснение решения задания crypto_crack.py
+
+1. Что делает программа
+
+В файле crypto_crack.py используется алгоритм ChaCha20:
+
+    from Crypto.Cipher import ChaCha20
+
+ChaCha20 — это потоковый симметричный шифр. Для расшифровки нужны три значения:
+
+    key
+    nonce
+    ciphertext
+
+В выводе программы нам дали key и ciphertext:
+
+    key = "ZJLG3ISPIHPLEoSe9dlErrGtOGlxfTO4AJ23y8fvgHQ="
+    ciphertext = "u1eldjdCfC85wyWiBp8uPOQtRI5LrSZTPk+vdJPhfKd1z00sKl1b5A=="
+
+Но nonce в выводе программы не указан. Поэтому одного знания ключа недостаточно.
+
+2. Где находится ошибка
+
+В коде есть строки:
+
+    random.seed(int(time.time()))
+    nonce = struct.pack("<Q", random.randint(1, 2**64 - 1))
+
+Основная ошибка находится в строке:
+
+    nonce = struct.pack("<Q", random.randint(1, 2**64 - 1))
+
+Проблема в том, что nonce генерируется через обычный модуль random.
+Модуль random не является криптографически стойким генератором.
+
+Дополнительно ситуацию ухудшает строка:
+
+    random.seed(int(time.time()))
+
+Здесь генератор random засеян текущим Unix-временем.
+Значит, seed — это обычное число, равное времени запуска программы в секундах.
+Такой seed можно перебрать.
+
+3. Почему это позволяет расшифровать флаг
+
+ChaCha20 не сломан. Уязвимость появилась из-за неправильной генерации nonce.
+
+Если перебрать возможные значения Unix timestamp, можно для каждого seed восстановить nonce точно так же, как это делала исходная программа:
+
+    random.seed(seed)
+    nonce = struct.pack("<Q", random.randint(1, 2**64 - 1))
+
+После этого можно создать ChaCha20 с известным key и восстановленным nonce, а затем попробовать расшифровать ciphertext.
+
+4. Декодирование key и ciphertext
+
+В выводе key и ciphertext записаны в Base64, поэтому сначала их нужно декодировать:
+
+    from base64 import b64decode
+
+    key = b64decode("ZJLG3ISPIHPLEoSe9dlErrGtOGlxfTO4AJ23y8fvgHQ=")
+    ciphertext = b64decode("u1eldjdCfC85wyWiBp8uPOQtRI5LrSZTPk+vdJPhfKd1z00sKl1b5A==")
+
+5. Скрипт для перебора seed и восстановления nonce
+
+    from base64 import b64decode
+    import random
+    import struct
+    from Crypto.Cipher import ChaCha20
+
+    key = b64decode("ZJLG3ISPIHPLEoSe9dlErrGtOGlxfTO4AJ23y8fvgHQ=")
+    ciphertext = b64decode("u1eldjdCfC85wyWiBp8uPOQtRI5LrSZTPk+vdJPhfKd1z00sKl1b5A==")
+
+    start = 1690000000
+    end = 1691000000
+
+    for seed in range(start, end):
+        random.seed(seed)
+        nonce = struct.pack("<Q", random.randint(1, 2**64 - 1))
+
+        cipher = ChaCha20.new(key=key, nonce=nonce)
+        plaintext = cipher.decrypt(ciphertext)
+
+        if plaintext.startswith(b"S21{") and plaintext.endswith(b"}"):
+            print("seed =", seed)
+            print("nonce =", nonce.hex())
+            print("flag =", plaintext.decode("utf-8"))
+            break
+
+6. Почему проверка именно startswith и endswith
+
+Нельзя проверять только так:
+
+    if b"S21{" in plaintext:
+
+Такая проверка может дать ложное совпадение, потому что последовательность S21{ может случайно встретиться внутри мусорных байтов.
+
+Правильнее проверять, что расшифрованный текст выглядит как полноценный флаг:
+
+    plaintext.startswith(b"S21{") and plaintext.endswith(b"}")
+
+7. Полученный результат
+
+При переборе был найден seed:
+
+    1690386967
+
+Восстановленный nonce:
+
+    9e0ef2347119dc88
+
+Расшифрованный plaintext:
+
+    S21{th1s_n0nc3_is_n0n_s3ns3_ch4_ch4_ch4}
+
+8. Итоговый ответ для crack.txt
+
+Флаг:
+
+    S21{th1s_n0nc3_is_n0n_s3ns3_ch4_ch4_ch4}
+
+Ошибка:
+
+    nonce = struct.pack("<Q", random.randint(1, 2**64 - 1))
+
+Причина:
+
+    nonce для ChaCha20 был сгенерирован через предсказуемый random,
+    который был засеян текущим Unix-временем.
